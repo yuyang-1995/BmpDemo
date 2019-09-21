@@ -54,7 +54,6 @@ public class MainActivity extends AppCompatActivity {
     int ivnum = 0;
     String ivname;
 
-
     private int hasPermission = -2;
 
     Bitmap ivbitmap;
@@ -85,25 +84,33 @@ public class MainActivity extends AppCompatActivity {
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        openDevice();  //连接设备
 
-                        while (true) {
+                      openDevice();  //连接设备
 
+                      while (true){
 
-                            if (isOkToScan()){
+                          try {
 
+                              Thread.sleep(500);
 
-                                getDataFromUsb(); //
+                          } catch (InterruptedException e) {
+                              e.printStackTrace();
 
-                                showBmpToIv();
+                          }
 
-                            }else {
+                          if (isOkToScan()){
 
+                              Log.e("isOk", "True");
 
-                            }
+                              checkHaveData();
 
-                           }
+                              getDataFromUsb();
 
+                          }else {
+                              Log.e("isOk", "False");
+                          }
+                      }
+                      //  showBmpToIv();
                     }
                 }).start();
             }
@@ -111,19 +118,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    void  checkHaveData(){
+
+    }
+
      //是否可以接受图片数据
      boolean isOkToScan(){
 
         //第一步， 发送 查询扫描命令，打印机会返回信息解析信息 看有无数据
          //
-         byte b1 = (byte) 170;
+         byte b1 = (byte) 0xAA;
          byte b2 = 0x55;
 
          byte b3 = 0x02;  //扫描查询， 看有无数据
          byte b3s = 0x00;
 
-         byte b4 = 0x00;  //lenh
-         byte b5 = 0x0e;   //lenl
+         byte b4 = 0x0e;  //lenl
+         byte b5 = 0x00;   //lenh
 
          //n1h n1l n2h n2l n3h n3l
          byte b6 = 0x00;
@@ -134,6 +145,7 @@ public class MainActivity extends AppCompatActivity {
          byte b11 = 0x00;
 
 
+         //求和
          int b1i = 170; // 十六进制AA 的的十进制
          int b2i = 85; //十六进制55 的十进制
          int b5i = 14; //十六进制 e的十进制
@@ -145,52 +157,61 @@ public class MainActivity extends AppCompatActivity {
          byte[] bytes1 = varIntToByteArray(sum);
 
 
-         byte b12 =(byte) bytes1[0];
-         byte b13 = (byte) bytes1[1];
+         byte b12 =(byte) bytes1[1];
+         byte b13 = (byte) bytes1[0];
 
          //发送命令
          byte[] bytes = new byte[]{b1, b2, b3,b3s, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13};
 
-
          //接受容器
          byte[] bytes2 = new byte[14];
 
-         int i = 0;
+         StringBuilder stringBuilder = new StringBuilder();
+         for (int i = 0; i < bytes.length ; i++){
 
-         boolean isRead = false;
+             stringBuilder.append(bytes[i] + "  ");
+
+         }
+
+         Log.e("ZL", stringBuilder.toString());
 
          //发送扫描指令 查询扫描，看有没有数据
-         writeIO(bytes, 0, bytes.length, 1000);
+        writeIO(bytes, 0, bytes.length, 1000);
+
 
          //接受数据
          while (true){
 
-             //每次读14 个字节
+               //每次读14 个字节
              int ret = mUsbDeviceConnection.bulkTransfer(mEndpointIn, bytes2, 14,1000);
 
              if (ret > 0) {
                  System.out.println("ret: " + ret);
                  break;
-             }
 
+             }else {
+                 Log.d("Fail", ret + "");
+             }
       }
 
          //遍历接受容器的数据
          int l = 0;
 
          for (byte b : bytes2){
+
              System.out.println( "第" + l++  + " 个=" + b);
+
          }
 
-         if (bytes2[11] != 0x00 || bytes[10] != 0x00){
+
+         if (bytes2[11] != 0 || bytes2[10] != 0){
 
              return true;
 
          }else {
-
+             System.out.println( "十 " + bytes2[10] + " 十一 "  +bytes2[11]);
              return false;
          }
-
      }
 
     /**
@@ -222,7 +243,9 @@ public class MainActivity extends AppCompatActivity {
                 waitTime);
 
         if (ret < 0) {
+
             return -1;
+
         }
 
         Log.i("数据传输结束","TAG");
@@ -388,6 +411,7 @@ public class MainActivity extends AppCompatActivity {
 
         //保存图片
         ivname = "test" + ++ivnum + ".bmp";
+
         saveToSDCard(ivname, bmpBytes);
 
         Log.e("save", "Save");
@@ -745,7 +769,13 @@ public class MainActivity extends AppCompatActivity {
             new UsbCheckSRT(7344, 3),
             new UsbCheckSRT(1155, 41064),
             new UsbCheckSRT(1659, 8963),
-            new UsbCheckSRT(3034, 46880)
+            new UsbCheckSRT(1027, 24577),
+            new UsbCheckSRT(3034, 46880),
+            new UsbCheckSRT(1027, 24577),
+            new UsbCheckSRT(9390, 6162),
+            new UsbCheckSRT(6790, 29987),
+            new UsbCheckSRT(10400, 4485),
+            new UsbCheckSRT(1155, 22336)
 
     };
 
