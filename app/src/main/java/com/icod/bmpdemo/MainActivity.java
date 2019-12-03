@@ -41,6 +41,7 @@ public class MainActivity extends AppCompatActivity {
 
     private Button btn_on, btn_off, btn_print;
     private ImageView iv;
+    private String love;
 
     private UsbManager mUsbManager;
     private UsbDevice mDevice;
