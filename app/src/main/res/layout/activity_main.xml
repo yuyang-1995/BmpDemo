@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
-
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -8,7 +7,6 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:gravity="center"
-
     tools:context=".MainActivity">
 
     <LinearLayout
@@ -23,6 +21,7 @@
             android:id="@+id/iv"
             android:layout_width="0dp"
             android:layout_weight="2"
+            android:src="@drawable/te"
             android:background="#ffaec9"
             android:layout_height="400dp" />
 
@@ -36,9 +35,9 @@
 
             <Button
                 android:id="@+id/btn_open"
-                android:text="连接设备等待扫描"
-                android:layout_width="100dp"
-                android:layout_height="100dp" />
+                android:layout_width="94dp"
+                android:layout_height="100dp"
+                android:text="连接设备等待扫描" />
 
             <Button
                 android:id="@+id/btn_close"
@@ -49,9 +48,24 @@
                 />
 
 
-
-
         </LinearLayout>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <TextView
+            android:id="@+id/tv"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="状态"
+            android:textSize="20sp"
+            android:gravity="center"
+            />
+
+
 
     </LinearLayout>
 

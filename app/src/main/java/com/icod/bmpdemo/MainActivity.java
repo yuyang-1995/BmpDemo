@@ -23,6 +23,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
@@ -38,9 +39,8 @@ import java.util.logging.Logger;
 public class MainActivity extends AppCompatActivity {
 
 
-    private Button btn_on, btn_off;
+    private Button btn_on, btn_off, btn_print;
     private ImageView iv;
-    InputStream is;
 
     private UsbManager mUsbManager;
     private UsbDevice mDevice;
@@ -48,11 +48,12 @@ public class MainActivity extends AppCompatActivity {
     private UsbDeviceConnection mUsbDeviceConnection;
 
     private PendingIntent mPermissionIntent;
+    private TextView textView;
 
     private UsbEndpoint mEndpointIn;
     private UsbEndpoint mEndpointOut;
-    int ivnum = 0;
-    String ivname;
+
+    String ivname = "text.bmp";
 
     private int hasPermission = -2;
 
@@ -70,8 +71,25 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-
         btn_on = findViewById(R.id.btn_open);
+
+        btn_off = findViewById(R.id.btn_close);
+
+        textView = findViewById(R.id.tv);
+
+        textView.setText(" ");
+
+
+
+
+        btn_off.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+
+                closeDevice();
+
+            }
+        });
 
         iv = findViewById(R.id.iv);
 
@@ -79,38 +97,67 @@ public class MainActivity extends AppCompatActivity {
         btn_on.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-
                 //如果已近连接则提示
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
 
-                      openDevice();  //连接设备
+                        if (openDevice() == 0){
+
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+
+                                    iv.setImageBitmap(null);
+
+                                    textView.setText("状态：连接成功。。。");
+                                }
+                            });
+
+                        }else {
+
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    textView.setText("状态：连接失败请重连。。。");
+                                }
+                            });
+
+                        }
+//                      openDevice();  //连接设备
 
                       while (true){
 
-                          try {
-
-                              Thread.sleep(500);
-
-                          } catch (InterruptedException e) {
-                              e.printStackTrace();
-
-                          }
-
                           if (isOkToScan()){
 
+                              runOnUiThread(new Runnable() {
+                                  @Override
+                                  public void run() {
+                                      textView.setText("状态:等待扫描中。。。");
+                                  }
+                              });
+
+
                               Log.e("isOk", "True");
+                              if (mUsbDeviceConnection != null) {
+                                  //mUsbDeviceConnection
+                                  //获取数据
+                                  getDataFromUsb();
 
-                              checkHaveData();
+                                  //
+                                  showBmpToIv();
 
-                              getDataFromUsb();
+//                                  break;
+                              }else {
+
+                                System.out.println("mUsbDeviceConnection == null");
+                              }
 
                           }else {
                               Log.e("isOk", "False");
                           }
                       }
-                      //  showBmpToIv();
+
                     }
                 }).start();
             }
@@ -118,13 +165,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    void  checkHaveData(){
-
-    }
-
      //是否可以接受图片数据
      boolean isOkToScan(){
-
         //第一步， 发送 查询扫描命令，打印机会返回信息解析信息 看有无数据
          //
          byte b1 = (byte) 0xAA;
@@ -144,7 +186,6 @@ public class MainActivity extends AppCompatActivity {
          byte b10 = 0x00;
          byte b11 = 0x00;
 
-
          //求和
          int b1i = 170; // 十六进制AA 的的十进制
          int b2i = 85; //十六进制55 的十进制
@@ -152,10 +193,8 @@ public class MainActivity extends AppCompatActivity {
          int b3i = 2; //扫描指令
 
          int sum = b1i + b2i + b5i +b3i;
-
          //求和
          byte[] bytes1 = varIntToByteArray(sum);
-
 
          byte b12 =(byte) bytes1[1];
          byte b13 = (byte) bytes1[0];
@@ -168,46 +207,25 @@ public class MainActivity extends AppCompatActivity {
 
          StringBuilder stringBuilder = new StringBuilder();
          for (int i = 0; i < bytes.length ; i++){
-
              stringBuilder.append(bytes[i] + "  ");
-
          }
 
          Log.e("ZL", stringBuilder.toString());
-
          //发送扫描指令 查询扫描，看有没有数据
-        writeIO(bytes, 0, bytes.length, 1000);
-
-
+          writeIO(bytes, 0, bytes.length, 1000);
          //接受数据
          while (true){
-
                //每次读14 个字节
              int ret = mUsbDeviceConnection.bulkTransfer(mEndpointIn, bytes2, 14,1000);
-
-             if (ret > 0) {
-                 System.out.println("ret: " + ret);
+             if (ret >= 0) {
+                 System.out.println("ret2: " + ret);
                  break;
-
              }else {
                  Log.d("Fail", ret + "");
              }
       }
-
-         //遍历接受容器的数据
-         int l = 0;
-
-         for (byte b : bytes2){
-
-             System.out.println( "第" + l++  + " 个=" + b);
-
-         }
-
-
          if (bytes2[11] != 0 || bytes2[10] != 0){
-
              return true;
-
          }else {
              System.out.println( "十 " + bytes2[10] + " 十一 "  +bytes2[11]);
              return false;
@@ -283,9 +301,11 @@ public class MainActivity extends AppCompatActivity {
                     data = new byte[writeTrueSize];
                 }
             }
+
             System.arraycopy(writeBuffer, writed + offsetSize, data, 0, writeTrueSize);
             copySize += writeTrueSize;
             writed = copySize;
+
             int write = mUsbDeviceConnection.bulkTransfer(mEndpointOut, data, data.length, waitTime);
 
             if (write == -1) {
@@ -329,6 +349,13 @@ public class MainActivity extends AppCompatActivity {
 
     //展示图片
     void showBmpToIv(){
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                textView.setText("展示图片。。。");
+            }
+        });
         // 1. 判断sd卡状态, 如果是挂载的状态才继续, 否则提示
         if (Environment.getExternalStorageState().equals(
                 Environment.MEDIA_MOUNTED)) {
@@ -355,8 +382,14 @@ public class MainActivity extends AppCompatActivity {
 
     //将扫描数据转bmp 文件
     void saveToBmp(int w, int h, byte[] bytes,  int lenght) throws Exception {
-
         //
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                textView.setText("扫描数据转BMP文件。。。");
+            }
+        });
+
         byte[] bmpBytes = new byte[lenght + 54];
 
         byte[] fileHead = new byte[14];
@@ -382,10 +415,8 @@ public class MainActivity extends AppCompatActivity {
         byte[] b5 = intTobyte(h, 4);
 
         for (int i = 0; i < 4; i++) {
-
             headInfo[4 + i] = b4[i];
             headInfo[8 + i] = b5[i];
-
         }
 
         // 01 00 18 00
@@ -398,7 +429,6 @@ public class MainActivity extends AppCompatActivity {
             headInfo[20+i] = b6[i];
         }
 
-
         //赋头
         System.arraycopy(fileHead, 0, bmpBytes, 0, fileHead.length);
 
@@ -408,19 +438,25 @@ public class MainActivity extends AppCompatActivity {
         //
         System.arraycopy(bytes, 0, bmpBytes, 54, lenght);
 
-
         //保存图片
-        ivname = "test" + ++ivnum + ".bmp";
+//        ivname = "test" + ++ivnum + ".bmp";
 
+        //存入sd 卡
         saveToSDCard(ivname, bmpBytes);
 
         Log.e("save", "Save");
-
     }
 
 
     //存入sd
     public void saveToSDCard(String fileName, byte[] bytes) throws Exception{
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                textView.setText("图片存入SD卡。。。");
+            }
+        });
 
         if(Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
             //SD卡已装入
@@ -453,19 +489,22 @@ public class MainActivity extends AppCompatActivity {
             t[3]=(byte)((a&0xff000000)>>24);
 
         return t;
-
     }
-
 
 
     //获取扫描数据
     void getDataFromUsb(){
 
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+
+                textView.setText("状态:获取扫描数据。。。");
+            }
+        });
         int widthPX = 1080;
 
         int heightPX = 40000;
-
-        int nStep = 64;  //一个包的大小
 
         //图片大小
         int sizePx = widthPX * heightPX * 3;
@@ -473,50 +512,163 @@ public class MainActivity extends AppCompatActivity {
         //图片容器
         byte[] zxSizeBytes = new byte[sizePx];
 
-        int i = 0;
+        System.out.println("zxSizeBytes:" + zxSizeBytes.length +"");
 
-        boolean isRead = false;
+        int length = 0;
 
-        //
-        while (i < sizePx){
+        //第二步， 发送03 查询扫描命令，打印机会返回信息解析信息 看有无数据
+        byte b1 = (byte) 170;
+        byte b2 = 0x55;
 
-            byte[] bytes = new byte[nStep];
+        byte b3 = 0x03;  //启动扫描向上发送数据
+        byte b3s = 0x00;
 
-            //每次读512 字节
-            int ret = mUsbDeviceConnection.bulkTransfer(mEndpointIn, bytes, nStep, 1000);
+        byte b4 = 0x00;  //lenh
+        byte b5 = 0x0e;   //lenl
 
-            Log.e("ret=", ret + "");
+        //n1h n1l n2h n2l n3h n3l
+        byte b6 = 0x00;
+        byte b7 = 0x00;
+        byte b8 = 0x00;
+        byte b9 = 0x00;
+        byte b10 = 0x00;
+        byte b11 = 0x00;
 
-            if (ret > 0) {
-                i += ret;
-                isRead = true;
-                //将每次读到的数据包 拷贝到容器
-                System.arraycopy(bytes, 0, zxSizeBytes, i, ret);
 
-           }else if (ret == 0){
+        int b1i = 170; // 十六进制AA 的的十进制
+        int b2i = 85; //十六进制55 的十进制
+        int b5i = 14; //十六进制 e的十进制
+        int b3i = 3; //扫描指令
 
-            }else {
+        int sum = b1i + b2i + b5i +b3i;
 
-                if (isRead) {
-                    break;
-                }
+        //求和
+        byte[] bytes1 = varIntToByteArray(sum);
 
-            }
+        byte b12 =(byte) bytes1[1];
+
+        byte b13 = (byte) bytes1[0];
+
+        //发送03 命令
+        byte[] bytes = new byte[]{b1, b2, b3,b3s, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13};
+
+        StringBuilder stringBuilder = new StringBuilder();
+
+        for (int i = 0; i < bytes.length ; i++){
+
+            stringBuilder.append(bytes[i] + "  ");
 
         }
 
-        Log.e("zxSizeBytes.length=", zxSizeBytes.length + "");
-        Log.e("zxSizeBytesreallength=", i + "");
+        Log.e("ZE", stringBuilder.toString());
+
+        //发送03指令启动扫描向上发送数据
+        writeIO(bytes, 0, bytes.length, 1000);
+
+        //接受容器
+        byte[] bytes2 = new byte[512];
+
+        //一步一步接受图片数据
+        while (true){
+            //每次读 个字节, 每一个头
+            //此处mUsbDeviceConnection.bulkTransfer 替换 mPrinter.readIO 方法
+            int ret = mUsbDeviceConnection.bulkTransfer(mEndpointIn, bytes2, 512,1000);
+
+            //返回有数据
+            if (ret >= 0) {
+
+                System.out.println("ret3: " + ret);
+
+                //获取图片数据大小
+                byte hightSize = bytes2[7];
+                byte lowSize = bytes2[6];
+
+                System.out.println("he:" + hightSize + "  low:" +lowSize);
+                int hi = hightSize & 0x000000ff;
+
+                int ls = lowSize & 0x000000ff;
+                int usDataLen = (hi << 8) | ls;
+
+                System.out.println("usDataLen" + usDataLen);
+
+                //读取每个包的 数据， 直至没有下一个头
+                //usDataLen = usDataLen & 0x0000ffff;
+
+                //将每次读到的 图片数据封装到 图片大数组
+                System.arraycopy(bytes2,14,zxSizeBytes, length , 498);
+
+                length += 498;
+
+                usDataLen-= 498;
+
+                //单个图片数据包容器
+//                byte[] packagebytes = new byte[usDataLen];
+
+                System.out.println(usDataLen + "");
+
+                int te = 0;
+
+                for (int i = 0; i < usDataLen / 512; ) {
+
+                    byte[] bytes3 = new byte[512];
+
+                    int retw = mUsbDeviceConnection.bulkTransfer(mEndpointIn, bytes3, 512, 1000);
+
+                    if (retw >= 0){
+                        i++;
+                        System.out.println("retw = " + retw);
+
+                        //将每次读到的 图片数据封装到 图片大数组
+                        System.arraycopy(bytes3,0,zxSizeBytes, length , retw);
+
+                        length += retw;
+
+                        te += retw;
+                    }
+                }
+
+                int h = usDataLen-te;
+
+                byte[] bytes4 = new byte[h];
+
+                int retw = mUsbDeviceConnection.bulkTransfer(mEndpointIn, bytes4, h, 1000);
+
+                if (retw >= 0){
+
+                    System.out.println("retw = " + retw);
+
+                    //将每次读到的 图片数据封装到 图片大数组
+                    System.arraycopy(bytes4,0,zxSizeBytes, length , retw);
+
+                    length += retw;
+                }
 
 
-        heightPX = i / 3 / widthPX;
+                //判断该组数据后还有无数据
+                if (bytes2[8] != 00 || bytes2[9] != 00){
 
-        //将获取的图像数据 组装成BMP 文件
+                }else {
+
+                    System.out.println("8: " + bytes2[8] + "9 :"  + bytes2[9] + "");
+                    break;
+                }
+
+            }else {
+
+                System.out.println("rete: " + ret);
+            }
+        }
+
+        heightPX = length/3/ widthPX;
+
+        System.out.println("heightPx: " + heightPX);
+
+        //读完数据后， 将图片全部数据 转bmp 文件
         try {
 
             saveToBmp(widthPX,heightPX,zxSizeBytes,widthPX*heightPX*3);
 
-        } catch (Exception e) {
+        }catch (Exception e){
 
             e.printStackTrace();
         }
@@ -634,6 +786,7 @@ public class MainActivity extends AppCompatActivity {
           }
 
           if (!unRegister) {
+
               unregisterReceiver(mUsbBroadCastReceiver);
           }
 
@@ -645,7 +798,6 @@ public class MainActivity extends AppCompatActivity {
                   return -1;
               } else {
                   Log.e("","尝试检测成功");
-
                   hasPermission = 0;
               }
 
@@ -734,6 +886,8 @@ public class MainActivity extends AppCompatActivity {
           unregisterReceiver(mUsbBroadCastReceiver);
             unRegister = true;
         }
+        Toast.makeText(this, "断开连接", Toast.LENGTH_SHORT).show();
+
         Log.i("","usb 设备关闭 ");
 
         return 0;
@@ -790,14 +944,11 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-
       private boolean isOpen(){
 
         return this.mUsbDeviceConnection != null;
 
       }
-
-
 
 
     //usb 监听 由于权限问题而且sdk内部有超时时间 ,适用情况应该是系统默认usb权限开放或者root 板则使用UsbNativeApi
@@ -822,7 +973,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
-
 
     private static class NoLeakHandler extends Handler {
         WeakReference<MainActivity> wf = null;
