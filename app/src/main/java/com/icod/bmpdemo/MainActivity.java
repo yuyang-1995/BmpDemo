@@ -567,6 +567,7 @@ public class MainActivity extends AppCompatActivity {
 
         //接受容器
         byte[] bytes2 = new byte[512];
+        int u;
 
         //一步一步接受图片数据
         while (true){
