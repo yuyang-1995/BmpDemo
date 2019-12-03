@@ -56,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
     String ivname = "text.bmp";
 
     private int hasPermission = -2;
+    private int i;
 
     Bitmap ivbitmap;
 
